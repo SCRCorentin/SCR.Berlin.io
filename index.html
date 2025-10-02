@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Carte Clubs Berlin — Itinéraires</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Carte Clubs Berlin — Mobile</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
@@ -13,34 +13,90 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
   <style>
+    :root { --pad: 10px; --radius: 12px; --shadow: 0 4px 16px rgba(0,0,0,.18); }
     html, body, #map { height: 100%; margin: 0; }
-    .topbar {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      background: rgba(255,255,255,0.95); border-radius: 10px; padding: 8px 10px; z-index: 1000;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+    /* Floating top-left block (Geocoder) */
+    .toppad { position:absolute; top: env(safe-area-inset-top, 0px); left: 8px; right: 8px; z-index:1000; display:flex; gap:8px; pointer-events:none; }
+    .chip { background: rgba(255,255,255,.96); border-radius: var(--radius); padding: 6px 10px; box-shadow: var(--shadow); pointer-events:auto; }
+    .chip .title { font-weight:600; font-size: 14px; }
+
+    /* Bottom dock (mobile toolbar) */
+    .dock {
+      position: absolute;
+      left: 8px; right: 8px;
+      bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      z-index: 1000;
+      background: rgba(255,255,255,.96);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 8px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
     }
-    .topbar b { font-size: 14px; }
-    .leaflet-bar select { border: none; outline: none; padding: 4px; }
-    .legend {
-      position: absolute; bottom: 16px; left: 16px; z-index: 1000; background: rgba(255,255,255,0.95);
-      padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15); font-size: 12px;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    .dock .row { display:flex; gap:8px; align-items:center; }
+    .dock select, .dock button, .dock input[type="checkbox"] {
+      font-size: 16px;
     }
-    /* Mobile tweaks */
-    @media (max-width: 600px) {
-      .topbar { left: 8px; right: 8px; transform: none; }
+    .dock select {
+      flex:1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      background: white;
+    }
+    .dock button {
+      padding: 10px 12px;
+      border-radius: 10px; border: 1px solid #ddd; background:white;
+    }
+    .dock label { font-size: 14px; }
+    .dock .hint { font-size: 12px; color:#555; }
+
+    .leaflet-control-geocoder {
+      min-width: 240px;
+    }
+
+    /* Make sure controls don't steal too much space on small screens */
+    @media (max-width: 420px) {
+      .leaflet-control-geocoder { min-width: 180px; }
+      .dock select, .dock button { font-size: 15px; }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="topbar"><b>Carte Clubs Berlin</b> — recherche 🔍, itinéraires 🚶🚲🚗</div>
-  <div class="legend">
-    <b>Astuce</b><br/>
-    • Cliquez pour définir départ/arrivée<br/>
-    • 🔍 chercher une adresse<br/>
-    • ❌ effacer l'itinéraire&nbsp;&nbsp;|&nbsp;&nbsp;↩️ annuler le dernier point<br/>
-    • Menu en haut à droite : lieux + mode
+
+  <div class="toppad">
+    <div class="chip">
+      <div class="title">Carte Clubs Berlin</div>
+      <div style="font-size:12px">Recherche 🔍, itinéraires 🚶🚲🚗</div>
+    </div>
+    <!-- Geocoder will render here (top-left by default) -->
+  </div>
+
+  <!-- Bottom dock -->
+  <div class="dock leaflet-control" id="dock">
+    <div class="row">
+      <button id="locateBtn" title="Ma position">📍</button>
+      <button id="undoBtn" title="Supprimer le dernier point">↩️</button>
+      <button id="clearBtn" title="Effacer l’itinéraire">❌</button>
+      <label><input type="checkbox" id="tapToggle" checked /> Tap = poser un point</label>
+    </div>
+    <div class="row">
+      <select id="modeSel" title="Mode">
+        <option value="foot" selected>Marche 🚶</option>
+        <option value="bike">Vélo 🚲</option>
+        <option value="driving">Voiture 🚗</option>
+      </select>
+      <select id="destSel" title="Itinéraire vers">
+        <option value="">Itinéraire vers…</option>
+      </select>
+    </div>
+    <div class="row hint">
+      Conseils : utilisez la loupe pour chercher une adresse. La durée s’ajuste selon le mode choisi.
+    </div>
   </div>
 
   <!-- Leaflet JS -->
@@ -67,59 +123,29 @@
 
     // ---- Carte ----
     const map = L.map('map').setView([52.5076, 13.4], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    // Place markers
+    lieux.forEach(l => L.marker([l.lat, l.lon], { title: l.nom }).addTo(map).bindPopup(`<b>${l.nom}</b><br>${l.desc}`));
 
-    // Marqueurs
-    lieux.forEach(l => {
-      L.marker([l.lat, l.lon], { title: l.nom })
-        .addTo(map)
-        .bindPopup(`<b>${l.nom}</b><br>${l.desc}`);
-    });
+    // Geocoder
+    const geocoder = L.Control.geocoder({ defaultMarkGeocode: true, placeholder: "Chercher une adresse…" }).addTo(map);
 
-    // Recherche adresse
-    const geocoder = L.Control.geocoder({
-      defaultMarkGeocode: true,
-      placeholder: "Chercher une adresse…"
-    }).addTo(map);
-
-    // Localiser (nécessite https)
-    L.control.locate = function(opts) {
-      // Simple button that recenters to browser geolocation
-      const control = L.control({position: 'topleft'});
-      control.onAdd = function(){
-        const div = L.DomUtil.create('div', 'leaflet-bar');
-        const a = L.DomUtil.create('a', '', div);
-        a.href = '#';
-        a.title = 'Utiliser ma position';
-        a.innerHTML = '📍';
-        L.DomEvent.on(a, 'click', function(e){
-          L.DomEvent.stop(e);
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-              const ll = [pos.coords.latitude, pos.coords.longitude];
-              map.setView(ll, 15);
-              L.circleMarker(ll).addTo(map).bindPopup('Vous êtes ici').openPopup();
-            });
-          } else {
-            alert('Géolocalisation non supportée par ce navigateur.');
-          }
-        });
-        return div;
-      };
-      return control;
-    };
-    L.control.locate().addTo(map);
+    // Prevent clicks on controls from creating points
+    const dock = document.getElementById('dock');
+    L.DomEvent.disableClickPropagation(dock);
+    L.DomEvent.disableScrollPropagation(dock);
+    setTimeout(() => {
+      const gc = document.querySelector('.leaflet-control-geocoder');
+      if (gc) {
+        L.DomEvent.disableClickPropagation(gc);
+        L.DomEvent.disableScrollPropagation(gc);
+      }
+    }, 0);
 
     // ---- Routing ----
     let currentProfile = 'foot'; // 'foot' | 'bike' | 'driving'
-    const routerFactory = (profile) => L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile
-    });
-
+    const routerFactory = (profile) => L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile });
     const formatter = new L.Routing.Formatter({ units: 'metric', language: 'fr' });
 
     const routingControl = L.Routing.control({
@@ -139,93 +165,60 @@
       try { routingControl.route(); } catch(e) {}
     }
 
-    // Clic pour poser départ/arrivée
-    map.on('click', (e) => {
+    // Destinations list
+    const destSel = document.getElementById('destSel');
+    destSel.innerHTML = '<option value="">Itinéraire vers…</option>' + lieux.map(l => `<option value="${l.lat},${l.lon}">${l.nom}</option>`).join('');
+
+    destSel.addEventListener('change', () => {
+      if (!destSel.value) return;
+      const [lat, lon] = destSel.value.split(',').map(parseFloat);
+      const dest = L.latLng(lat, lon);
       const wps = routingControl.getWaypoints();
       if (!wps[0].latLng) {
-        routingControl.setWaypoints([e.latlng]);
-      } else if (!wps[1].latLng) {
-        routingControl.setWaypoints([wps[0].latLng, e.latlng]);
+        routingControl.setWaypoints([map.getCenter(), dest]);
       } else {
-        // Si 2 points déjà posés, on remplace l'arrivée
-        routingControl.setWaypoints([wps[0].latLng, e.latlng]);
+        routingControl.setWaypoints([wps[0].latLng, dest]);
       }
     });
 
-    // ---- Contrôles additionnels ----
-    // Clear (❌) + Undo (↩️)
-    const clearCtrl = L.control({position: 'topleft'});
-    clearCtrl.onAdd = function(){
-      const div = L.DomUtil.create('div', 'leaflet-bar');
-      const clearBtn = L.DomUtil.create('a', '', div);
-      clearBtn.href = '#'; clearBtn.title = 'Supprimer tous les points'; clearBtn.innerHTML = '❌';
-      L.DomEvent.on(clearBtn, 'click', function(e){
-        L.DomEvent.stop(e);
-        routingControl.setWaypoints([]);
-      });
+    // Mode selector
+    document.getElementById('modeSel').addEventListener('change', (e) => setProfile(e.target.value));
 
-      const undoBtn = L.DomUtil.create('a', '', div);
-      undoBtn.href = '#'; undoBtn.title = 'Supprimer le dernier point'; undoBtn.innerHTML = '↩️';
-      L.DomEvent.on(undoBtn, 'click', function(e){
-        L.DomEvent.stop(e);
-        const wps = routingControl.getWaypoints();
-        if (wps[1].latLng) {
-          routingControl.setWaypoints([wps[0].latLng]);
-        } else if (wps[0].latLng) {
-          routingControl.setWaypoints([]);
-        }
-      });
-      return div;
-    };
-    clearCtrl.addTo(map);
+    // Tap-to-add toggle
+    let tapEnabled = true;
+    document.getElementById('tapToggle').addEventListener('change', (e) => tapEnabled = e.target.checked);
 
-    // Menu "Itinéraire vers :" + sélecteur de mode
-    const quickCtrl = L.control({position: 'topright'});
-    quickCtrl.onAdd = function(){
-      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      container.style.background = 'white';
-      container.style.padding = '6px';
-      container.style.minWidth = '220px';
+    // Map click to set waypoints (only if toggle ON)
+    map.on('click', (e) => {
+      if (!tapEnabled) return;
+      if (e.originalEvent && e.originalEvent.target.closest && e.originalEvent.target.closest('.leaflet-control')) return;
+      const wps = routingControl.getWaypoints();
+      if (!wps[0].latLng) routingControl.setWaypoints([e.latlng]);
+      else if (!wps[1].latLng) routingControl.setWaypoints([wps[0].latLng, e.latlng]);
+      else routingControl.setWaypoints([wps[0].latLng, e.latlng]);
+    });
 
-      const label = document.createElement('div');
-      label.style.fontSize = '12px';
-      label.style.marginBottom = '4px';
-      label.innerHTML = '<b>Itinéraire vers :</b>';
-      container.appendChild(label);
-
-      const sel = document.createElement('select');
-      sel.style.width = '100%';
-      sel.innerHTML = '<option value="">Choisir un lieu…</option>' +
-        lieux.map(l => `<option value="${l.lat},${l.lon}">${l.nom}</option>`).join('');
-      sel.onchange = function(){
-        if (!sel.value) return;
-        const [lat, lon] = sel.value.split(',').map(parseFloat);
-        const dest = L.latLng(lat, lon);
-        const wps = routingControl.getWaypoints();
-        if (!wps[0].latLng) {
-          routingControl.setWaypoints([map.getCenter(), dest]);
-        } else {
-          routingControl.setWaypoints([wps[0].latLng, dest]);
-        }
-      };
-      container.appendChild(sel);
-
-      const modeBox = document.createElement('div');
-      modeBox.style.marginTop = '6px';
-      modeBox.style.fontSize = '12px';
-      modeBox.innerHTML = '<b>Mode :</b> ';
-      const modeSel = document.createElement('select');
-      modeSel.innerHTML = '<option value="foot" selected>Marche 🚶</option>' +
-                          '<option value="bike">Vélo 🚲</option>' +
-                          '<option value="driving">Voiture 🚗</option>';
-      modeSel.onchange = () => setProfile(modeSel.value);
-      modeBox.appendChild(modeSel);
-      container.appendChild(modeBox);
-
-      return container;
-    };
-    quickCtrl.addTo(map);
-
+    // Buttons
+    document.getElementById('clearBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      routingControl.setWaypoints([]);
+      destSel.value = "";
+    });
+    document.getElementById('undoBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const wps = routingControl.getWaypoints();
+      if (wps[1].latLng) routingControl.setWaypoints([wps[0].latLng]);
+      else if (wps[0].latLng) routingControl.setWaypoints([]);
+    });
+    document.getElementById('locateBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!navigator.geolocation) return alert('Géolocalisation non supportée.');
+      navigator.geolocation.getCurrentPosition(pos => {
+        const ll = [pos.coords.latitude, pos.coords.longitude];
+        map.setView(ll, 15);
+        L.circleMarker(ll).addTo(map).bindPopup('Vous êtes ici').openPopup();
+      }, () => alert('Impossible de récupérer votre position.'));
+    });
   </script>
 </body>
 </html>
