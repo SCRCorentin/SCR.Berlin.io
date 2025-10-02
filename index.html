@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
   <style>
-    :root { --pad: 10px; --radius: 12px; --shadow: 0 4px 16px rgba(0,0,0,.18); }
+    :root { --radius: 12px; --shadow: 0 4px 16px rgba(0,0,0,.18); }
     html, body, #map { height: 100%; margin: 0; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 
@@ -34,15 +34,11 @@
       gap: 6px;
     }
     .dock .row { display:flex; gap:8px; align-items:center; }
-    .dock select, .dock button, .dock input[type="checkbox"] {
-      font-size: 16px;
-    }
+    .dock select, .dock button, .dock input[type="checkbox"] { font-size: 16px; }
     .dock select {
       flex:1;
       padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ddd;
-      background: white;
+      border-radius: 10px; border: 1px solid #ddd; background: white;
     }
     .dock button {
       padding: 10px 12px;
@@ -52,17 +48,34 @@
     .dock .hint { font-size: 12px; color:#555; }
 
     .leaflet-control-geocoder { min-width: 220px; }
-
     @media (max-width: 420px) {
       .leaflet-control-geocoder { min-width: 170px; }
       .dock select, .dock button { font-size: 15px; }
     }
 
-    .pink { color: #ff1493; }
+    /* Legend */
+    .legend {
+      position: absolute;
+      left: 8px;
+      top: calc(8px + env(safe-area-inset-top, 0px));
+      z-index: 1000;
+      background: rgba(255,255,255,.96);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 6px 8px;
+      font-size: 13px;
+      line-height: 1.3;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
+  <!-- Legend -->
+  <div class="legend leaflet-control">
+    <div>🪩 autres lieux</div>
+    <div>💖 strip-clubs</div>
+  </div>
 
   <!-- Bottom dock -->
   <div class="dock leaflet-control" id="dock">
@@ -96,7 +109,7 @@
 
   <script>
     // ---- Données ----
-    const lieux = [
+    const autres = [
       { nom: "Crack Bellemer", lat: 52.5075992, lon: 13.4547859, desc: "ok pour groupes" },
       { nom: "Ritter Butzke", lat: 52.5028492, lon: 13.4078816, desc: "ok pour groupes" },
       { nom: "Berghain", lat: 52.5110691, lon: 13.4429945, desc: "Meilleure boîte du monde (difficile d'entrer)" },
@@ -109,8 +122,7 @@
       { nom: "SchwuZ", lat: 52.4794165, lon: 13.4337682, desc: "Club LGBTQ, facile à entrer" }
     ];
 
-    // Clubs supplémentaires (rose)
-    const rose = [
+    const strips = [
       { nom: "Golden Dolls", lat: 52.5036206, lon: 13.3658569, desc: "Strip-club" },
       { nom: "Angels Berlin", lat: 52.5293175, lon: 13.4101599, desc: "Strip-club" },
       { nom: "Tutti Frutti Club", lat: 52.4933521, lon: 13.3869794, desc: "Strip-club" },
@@ -122,21 +134,24 @@
     const map = L.map('map').setView([52.5076, 13.4], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-    // Marqueurs classiques (bleus par défaut)
-    lieux.forEach(l => L.marker([l.lat, l.lon], { title: l.nom }).addTo(map).bindPopup(`<b>${l.nom}</b><br>${l.desc}`));
-
-    // Marqueurs roses (circleMarkers)
-    rose.forEach(l => {
-      L.circleMarker([l.lat, l.lon], {
-        radius: 9,
-        color: '#ff1493',       // contour rose
-        fillColor: '#ff69b4',   // fond rose clair
-        fillOpacity: 0.9,
-        weight: 2
-      }).addTo(map).bindPopup(`<b class="pink">${l.nom}</b><br/>${l.desc}`);
+    // Marqueurs 🪩 (autres) - pins par défaut
+    autres.forEach(l => {
+      L.marker([l.lat, l.lon], { title: l.nom })
+        .addTo(map)
+        .bindPopup(`<b>🪩 ${l.nom}</b><br>${l.desc}`);
     });
 
-    // Geocoder
+    // Marqueurs 💖 (strips) - cercles roses bien visibles
+    strips.forEach(l => {
+      L.circleMarker([l.lat, l.lon], {
+        radius: 9,
+        color: '#ff1493', fillColor: '#ff69b4', fillOpacity: 0.9, weight: 2
+      })
+      .addTo(map)
+      .bindPopup(`<b>💖 ${l.nom}</b><br/>${l.desc}`);
+    });
+
+    // Geocoder (loupe)
     const geocoder = L.Control.geocoder({ defaultMarkGeocode: true, placeholder: "Chercher une adresse…" }).addTo(map);
 
     // Empêcher les clics à travers les contrôles
@@ -176,11 +191,15 @@
       try { routingControl.route(); } catch(e) {}
     }
 
-    // Liste des destinations = tous les points (classiques + roses)
-    const allPoints = [...lieux, ...rose];
+    // Menu destination = 🪩 pour autres, 💖 pour strips
+    const allOptions = [
+      ...autres.map(l => ({ label: `🪩 ${l.nom}`, lat: l.lat, lon: l.lon })),
+      ...strips.map(l => ({ label: `💖 ${l.nom}`, lat: l.lat, lon: l.lon })),
+    ].sort((a,b) => a.label.localeCompare(b.label, 'fr'));
+
     const destSel = document.getElementById('destSel');
     destSel.innerHTML = '<option value="">Itinéraire vers…</option>' +
-      allPoints.map(l => `<option value="${l.lat},${l.lon}">${l.nom}</option>`).join('');
+      allOptions.map(o => `<option value="${o.lat},${o.lon}">${o.label}</option>`).join('');
 
     destSel.addEventListener('change', () => {
       if (!destSel.value) return;
@@ -224,7 +243,7 @@
       else if (wps[0].latLng) routingControl.setWaypoints([]);
     });
 
-    // Localisation (compatible iOS/Safari)
+    // Localisation (iOS/Safari-friendly)
     document.getElementById('locateBtn').addEventListener('click', (e) => {
       e.preventDefault();
       if (!('geolocation' in navigator)) return alert('Géolocalisation non supportée.');
