@@ -72,8 +72,8 @@
   <div id="map"></div>
 
   <!-- Legend -->
-  <div class="legend leaflet-control">
-    <div>🪩 autres lieux</div>
+  <div class="legend leaflet-control" aria-label="Légende">
+    <div>🎉 autres lieux</div>
     <div>💖 strip-clubs</div>
   </div>
 
@@ -134,11 +134,11 @@
     const map = L.map('map').setView([52.5076, 13.4], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-    // Marqueurs 🪩 (autres) - pins par défaut
+    // Marqueurs 🎉 (autres) - pins par défaut
     autres.forEach(l => {
       L.marker([l.lat, l.lon], { title: l.nom })
         .addTo(map)
-        .bindPopup(`<b>🪩 ${l.nom}</b><br>${l.desc}`);
+        .bindPopup(`<b>🎉 ${l.nom}</b><br>${l.desc}`);
     });
 
     // Marqueurs 💖 (strips) - cercles roses bien visibles
@@ -191,9 +191,9 @@
       try { routingControl.route(); } catch(e) {}
     }
 
-    // Menu destination = 🪩 pour autres, 💖 pour strips
+    // Menu destination = 🎉 pour autres, 💖 pour strips
     const allOptions = [
-      ...autres.map(l => ({ label: `🪩 ${l.nom}`, lat: l.lat, lon: l.lon })),
+      ...autres.map(l => ({ label: `🎉 ${l.nom}`, lat: l.lat, lon: l.lon })),
       ...strips.map(l => ({ label: `💖 ${l.nom}`, lat: l.lat, lon: l.lon })),
     ].sort((a,b) => a.label.localeCompare(b.label, 'fr'));
 
