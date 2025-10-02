@@ -52,17 +52,10 @@
       .leaflet-control-geocoder { min-width: 170px; }
       .dock select, .dock button { font-size: 15px; }
     }
-
   </style>
 </head>
 <body>
   <div id="map"></div>
-
-  <!-- Legend -->
-  <div class="legend leaflet-control" aria-label="Légende">
-    <div>🎉 autres lieux</div>
-    <div>💖 strip-clubs</div>
-  </div>
 
   <!-- Bottom dock -->
   <div class="dock leaflet-control" id="dock">
@@ -155,10 +148,7 @@
 
     // ---- Routing (walking/cycling/driving) ----
     let currentProfile = 'walking';
-    const routerFactory = (profile) => L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile
-    });
+    const routerFactory = (profile) => L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile });
     const formatter = new L.Routing.Formatter({ units: 'metric', language: 'fr' });
 
     const routingControl = L.Routing.control({
