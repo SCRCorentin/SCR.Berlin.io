@@ -110,6 +110,11 @@
       { nom: "Sin City", lat: 52.5057579, lon: 13.3044032, desc: "Tabledance" }
     ];
 
+    // Nouvel hôtel
+    const hotels = [
+      { nom: "Hôtel Citadines Kurfürstendamm", lat: 52.4989945, lon: 13.3127422, desc: "🏨" }
+    ];
+
     // ---- Carte ----
     const map = L.map('map').setView([52.5076, 13.4], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
@@ -121,7 +126,7 @@
         .bindPopup(`<b>🎉 ${l.nom}</b><br>${l.desc}`);
     });
 
-    // Marqueurs 💖 (strips) - cercles roses bien visibles
+    // Marqueurs 💖 (strips) - cercles roses
     strips.forEach(l => {
       L.circleMarker([l.lat, l.lon], {
         radius: 9,
@@ -129,6 +134,13 @@
       })
       .addTo(map)
       .bindPopup(`<b>💖 ${l.nom}</b><br/>${l.desc}`);
+    });
+
+    // Marqueur 🏨 (hôtel) - pin par défaut mais libellé dédié
+    hotels.forEach(l => {
+      L.marker([l.lat, l.lon], { title: l.nom })
+        .addTo(map)
+        .bindPopup(`<b>🏨 ${l.nom}</b>`);
     });
 
     // Geocoder (loupe)
@@ -168,10 +180,11 @@
       try { routingControl.route(); } catch(e) {}
     }
 
-    // Menu destination = 🎉 pour autres, 💖 pour strips
+    // Menu destination = 🎉 autres, 💖 strips, 🏨 hôtel
     const allOptions = [
       ...autres.map(l => ({ label: `🎉 ${l.nom}`, lat: l.lat, lon: l.lon })),
       ...strips.map(l => ({ label: `💖 ${l.nom}`, lat: l.lat, lon: l.lon })),
+      ...hotels.map(l => ({ label: `🏨 ${l.nom}`, lat: l.lat, lon: l.lon })),
     ].sort((a,b) => a.label.localeCompare(b.label, 'fr'));
 
     const destSel = document.getElementById('destSel');
