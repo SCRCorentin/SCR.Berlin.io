@@ -95,7 +95,7 @@
       { nom: "Berghain", lat: 52.5110691, lon: 13.4429945, desc: "Meilleure boîte du monde (difficile d'entrer)" },
       { nom: "Renate", lat: 52.505, lon: 13.454, desc: "Club" },
       { nom: "Klunkerkranich", lat: 52.482195, lon: 13.4318525, desc: "Bar rooftop" },
-      { nom: "Bulbul Berlin", lat: 52.4994098, lon: 13.4242594, desc: "Lieu festif" },
+      { nom: "Bulbul Berlin", lat: 52.4994098, lon: 13.4242594, desc: "Lieu festif à la cool" },
       { nom: "Golden Gate", lat: 52.5159496, lon: 13.4170683, desc: "Club (underground)" },
       { nom: "MS Hoppetosse", lat: 52.4975353, lon: 13.4546997, desc: "Club sur un bateau" },
       { nom: "Trésor Berlin", lat: 52.5107462, lon: 13.4193396, desc: "Club techno légendaire" },
@@ -138,7 +138,10 @@
 
     // Marqueur 🏨 (hôtel) - pin par défaut mais libellé dédié
     hotels.forEach(l => {
-      L.marker([l.lat, l.lon], { title: l.nom })
+      L.circleMarker([l.lat, l.lon], {
+        radius: 11,
+        color: '#50535a', fillColor: '#2ea836', fillOpacity: 0.9, weight: 2
+      })
         .addTo(map)
         .bindPopup(`<b>🏨 ${l.nom}</b>`);
     });
